@@ -1,0 +1,9 @@
+HSPLcom/example/KinetixApp;->onCreate()V
+HSPLcom/example/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/example/di/AppContainer;-><init>(Landroid/content/Context;)V
+HSPLcom/example/data/local/KinetixDatabase$Companion;->buildDatabase(Landroid/content/Context;)Lcom/example/data/local/KinetixDatabase;
+HSPLcom/example/domain/calculator/MacroCalculator;->calculate(ILcom/example/domain/model/Sex;DDLcom/example/domain/model/ActivityLevel;Lcom/example/domain/model/NutritionGoal;DD)Lcom/example/domain/model/MacroTargets;
+HSPLcom/example/domain/calculator/WaterScheduleCalculator;->buildRemainingSchedule(Ljava/time/LocalDate;Ljava/time/LocalTime;Ljava/time/LocalTime;JIILjava/time/ZoneId;)Ljava/util/List;
+HSPLcom/example/domain/calculator/TrainingTuningCalculator;->prescriptionFor(Lcom/example/domain/model/TrainingGoal;)Lcom/example/domain/model/SetRepPrescription;
+HSPLcom/example/ui/screens/TodayScreenKt;->TodayScreen(Lcom/example/ui/viewmodel/TodayUiState;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/example/ui/screens/WorkoutScreenKt;->WorkoutScreen(**)V

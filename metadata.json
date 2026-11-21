@@ -1,0 +1,6 @@
+{
+  "name": "Kinetix",
+  "description": "High-performance offline-first Android fitness, split workout, nutrition, water, step, and media control companion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
