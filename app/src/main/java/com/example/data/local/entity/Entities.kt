@@ -83,7 +83,11 @@ data class SplitExerciseEntity(
     val exerciseName: String,
     val muscleGroup: String,
     val muscleHead: String,
-    val sortOrder: Int
+    val sortOrder: Int,
+    val targetSets: Int = 0,
+    val repMin: Int = 0,
+    val repMax: Int = 0,
+    val restSeconds: Int = 0
 )
 
 @Immutable

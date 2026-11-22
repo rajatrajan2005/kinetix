@@ -97,8 +97,11 @@ enum class SplitPreset(
     val label: String,
     val subtitle: String
 ) {
-    PPL("Push · Pull · Legs", "Default 3-day repeating push, pull & legs rotation"),
-    DOUBLE_MUSCLE("Double Muscle", "Back+Bi · Chest+Tri · Legs+Shoulders · Repeat")
+    DOUBLE_MUSCLE(
+        "6-Day Double Muscle (Default)",
+        "Mon–Sat training · Chest+Tri · Back+Bi · Shoulders+Abs · Legs · Sunday Rest"
+    ),
+    PPL("Push · Pull · Legs", "3-day push, pull & legs split")
 }
 
 enum class MealSlot(val label: String) {

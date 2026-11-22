@@ -55,6 +55,9 @@ interface ExerciseDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(exercises: List<ExerciseEntity>)
+
+    @Query("UPDATE exercises SET muscleGroup = 'Back', muscleHead = 'Mid-back' WHERE LOWER(name) LIKE '%chest-supported%'")
+    suspend fun repairChestSupportedRowTags()
 }
 
 @Dao
@@ -109,6 +112,9 @@ interface SplitDao {
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM split_exercises WHERE splitDayId = :dayId")
     suspend fun nextSortOrder(dayId: Long): Int
+
+    @Query("UPDATE split_exercises SET muscleGroup = 'Back', muscleHead = 'Mid-back' WHERE LOWER(exerciseName) LIKE '%chest-supported%'")
+    suspend fun repairChestSupportedRowTags()
 
     @Transaction
     suspend fun replaceEntireSplit(daysWithExercises: List<Pair<SplitDayEntity, List<SplitExerciseEntity>>>) {
@@ -187,6 +193,12 @@ interface WorkoutDao {
 
     @Query("DELETE FROM workout_sessions WHERE id = :sessionId")
     suspend fun deleteSession(sessionId: Long)
+
+    @Query("SELECT COUNT(*) FROM workout_sessions")
+    suspend fun countAllSessions(): Int
+
+    @Query("UPDATE workout_sets SET muscleGroup = 'Back', muscleHead = 'Mid-back' WHERE LOWER(exerciseName) LIKE '%chest-supported%'")
+    suspend fun repairChestSupportedRowTags()
 }
 
 @Dao

@@ -1,16 +1,15 @@
 package com.example
 
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.VisibilityThreshold
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,6 +52,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,19 +64,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.di.AppContainer
-import com.example.ui.components.KinetixAmbientBackdrop
+import com.example.ui.components.applePressScale
 import com.example.ui.navigation.KinetixRoute
 import com.example.ui.screens.InsightsScreen
 import com.example.ui.screens.NutritionScreen
@@ -83,18 +85,9 @@ import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TodayScreen
 import com.example.ui.screens.WorkoutScreen
-import com.example.ui.theme.AmoledBlack
-import com.example.ui.theme.ElectricVolt
-import com.example.ui.theme.FloatingDockSurface
-import com.example.ui.theme.GlacialCyan
-import com.example.ui.theme.GlassRimHighlight
-import com.example.ui.theme.GlassRimShadow
-import com.example.ui.theme.GlassTopSheen
 import com.example.ui.theme.KinetixTheme
-import com.example.ui.theme.ObsidianSurface
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VoltContainer
-import com.example.ui.theme.WarmAmber
+import com.example.ui.theme.KinetixTokens
+import com.example.ui.theme.rememberReduceAnimations
 import com.example.ui.viewmodel.DashboardViewModel
 import com.example.ui.viewmodel.NutritionViewModel
 import com.example.ui.viewmodel.SettingsViewModel
@@ -119,21 +112,16 @@ private data class NavItem(
     val label: String,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
+    val activeAccent: Color,
     val tag: String
 )
 
 private val NAV_ITEMS = listOf(
-    NavItem(KinetixRoute.Today, "Today", Icons.Filled.Home, Icons.Outlined.Home, "nav_today"),
-    NavItem(KinetixRoute.Workout, "Workout", Icons.Filled.FitnessCenter, Icons.Outlined.FitnessCenter, "nav_workout"),
-    NavItem(KinetixRoute.Nutrition, "Nutrition", Icons.Filled.Restaurant, Icons.Outlined.Restaurant, "nav_nutrition"),
-    NavItem(KinetixRoute.Insights, "Insights", Icons.Filled.Insights, Icons.Outlined.Insights, "nav_insights"),
-    NavItem(KinetixRoute.Settings, "Profile", Icons.Filled.Person, Icons.Outlined.Person, "nav_settings")
-)
-
-private val SlideSpec = spring(
-    dampingRatio = 0.90f,
-    stiffness = 460f,
-    visibilityThreshold = IntOffset.VisibilityThreshold
+    NavItem(KinetixRoute.Today, "Today", Icons.Filled.Home, Icons.Outlined.Home, KinetixTokens.Colors.Calories, "nav_today"),
+    NavItem(KinetixRoute.Workout, "Workout", Icons.Filled.FitnessCenter, Icons.Outlined.FitnessCenter, KinetixTokens.Colors.Workout, "nav_workout"),
+    NavItem(KinetixRoute.Nutrition, "Nutrition", Icons.Filled.Restaurant, Icons.Outlined.Restaurant, KinetixTokens.Colors.Calories, "nav_nutrition"),
+    NavItem(KinetixRoute.Insights, "Insights", Icons.Filled.Insights, Icons.Outlined.Insights, KinetixTokens.Colors.Hydration, "nav_insights"),
+    NavItem(KinetixRoute.Settings, "Profile", Icons.Filled.Person, Icons.Outlined.Person, KinetixTokens.Colors.TextPrimary, "nav_settings")
 )
 
 private fun tabIndexFor(route: KinetixRoute): Int {
@@ -148,7 +136,10 @@ private val KinetixRouteSaver: Saver<KinetixRoute, Int> = Saver(
 @Composable
 private fun KinetixRoot() {
     val context = LocalContext.current
+    val view = LocalView.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val container = AppContainer.get(context)
+    val reduceMotion = rememberReduceAnimations()
 
     val dashboardVm: DashboardViewModel = viewModel(
         factory = DashboardViewModel.Factory(
@@ -182,8 +173,20 @@ private fun KinetixRoot() {
         )
     )
 
-    // Collect ONLY onboarding status at root so timer ticks, sensor ticks, and profile edits
-    // never force root/AnimatedContent/FloatingGlassTaskbar recomposition.
+    var canExactAlarm by remember { mutableStateOf(container.waterAlarmScheduler.canScheduleExactAlarms()) }
+    var hasMediaListener by remember { mutableStateOf(container.mediaControlRepository.isAccessGranted()) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canExactAlarm = container.waterAlarmScheduler.canScheduleExactAlarms()
+                hasMediaListener = container.mediaControlRepository.isAccessGranted()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val onboardingDone by remember(settingsVm) {
         settingsVm.profileState
             .map { it.hasCompletedOnboarding != 0 }
@@ -193,7 +196,7 @@ private fun KinetixRoot() {
     if (!onboardingDone) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            containerColor = AmoledBlack,
+            containerColor = KinetixTokens.Colors.Background,
             contentWindowInsets = WindowInsets.safeDrawing
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
@@ -212,6 +215,7 @@ private fun KinetixRoot() {
     val navigateTab: (KinetixRoute) -> Unit = remember {
         { target ->
             if (target != currentRoute) {
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 if (target == KinetixRoute.Today) {
                     tabBackStack.clear()
                 } else {
@@ -233,10 +237,10 @@ private fun KinetixRoot() {
         }
     }
 
-    KinetixAmbientBackdrop(
-        primaryOrb = ElectricVolt,
-        secondaryOrb = GlacialCyan,
-        tertiaryOrb = WarmAmber
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(KinetixTokens.Colors.Background)
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val useRail = maxWidth >= 600.dp
@@ -248,7 +252,7 @@ private fun KinetixRoot() {
                         .statusBarsPadding()
                 ) {
                     if (useRail) {
-                        NavigationRail(containerColor = ObsidianSurface) {
+                        NavigationRail(containerColor = KinetixTokens.Colors.CardSurface) {
                             NAV_ITEMS.forEach { item ->
                                 val selected = currentRoute == item.route
                                 NavigationRailItem(
@@ -262,11 +266,11 @@ private fun KinetixRoot() {
                                     },
                                     label = { Text(item.label) },
                                     colors = NavigationRailItemDefaults.colors(
-                                        selectedIconColor = ElectricVolt,
-                                        selectedTextColor = ElectricVolt,
-                                        indicatorColor = VoltContainer,
-                                        unselectedIconColor = TextSecondary,
-                                        unselectedTextColor = TextSecondary
+                                        selectedIconColor = item.activeAccent,
+                                        selectedTextColor = item.activeAccent,
+                                        indicatorColor = Color.Transparent,
+                                        unselectedIconColor = KinetixTokens.Colors.TextSecondary,
+                                        unselectedTextColor = KinetixTokens.Colors.TextSecondary
                                     ),
                                     modifier = Modifier.testTag(item.tag)
                                 )
@@ -274,37 +278,28 @@ private fun KinetixRoot() {
                         }
                     }
 
-                    // Pure GPU-accelerated AnimatedContent horizontal pager slide with zero alpha saveLayers
+                    // Smooth ~200ms cross-fade + slight scale (0.98f -> 1f), respecting system reduce-motion
                     AnimatedContent(
                         targetState = currentRoute,
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxSize()
-                            .clipToBounds(),
+                            .fillMaxSize(),
                         transitionSpec = {
-                            val fromIdx = tabIndexFor(initialState)
-                            val toIdx = tabIndexFor(targetState)
-                            val dir = if (toIdx >= fromIdx) 1 else -1
-                            val enter = slideInHorizontally(
-                                animationSpec = SlideSpec,
-                                initialOffsetX = { fullWidth -> dir * fullWidth }
+                            val enter = fadeIn(
+                                animationSpec = KinetixTokens.Motion.tabFadeTween(reduceMotion)
+                            ) + scaleIn(
+                                initialScale = if (reduceMotion) 1f else 0.98f,
+                                animationSpec = KinetixTokens.Motion.tabFadeTween(reduceMotion)
                             )
-                            val exit = slideOutHorizontally(
-                                animationSpec = SlideSpec,
-                                targetOffsetX = { fullWidth -> -dir * fullWidth }
+                            val exit = fadeOut(
+                                animationSpec = KinetixTokens.Motion.tabFadeTween(reduceMotion)
                             )
-                            (enter togetherWith exit).apply {
-                                targetContentZIndex = if (toIdx >= fromIdx) 1f else 0f
-                            }.using(SizeTransform(clip = false))
+                            enter togetherWith exit
                         },
                         contentKey = { route -> tabIndexFor(route) },
-                        label = "kinetix_tab_slide"
+                        label = "kinetix_tab_transition"
                     ) { route ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer { }
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
                             saveableStateHolder.SaveableStateProvider(key = tabIndexFor(route)) {
                                 when (route) {
                                     KinetixRoute.Today -> {
@@ -342,10 +337,17 @@ private fun KinetixRoot() {
                                             onStartWorkout = workoutVm::startWorkout,
                                             onFinishWorkout = workoutVm::finishWorkout,
                                             onDiscardWorkout = workoutVm::discardWorkout,
+                                            onSelectActiveExercise = workoutVm::selectActiveExercise,
+                                            onUpdateExerciseConfig = workoutVm::updateExerciseSessionConfig,
+                                            onSkipActiveExercise = workoutVm::skipExerciseForToday,
+                                            onInspectExercise = workoutVm::inspectExerciseById,
+                                            onDismissExerciseInspect = workoutVm::dismissExerciseInspection,
                                             onLogSet = workoutVm::logSet,
                                             onDeleteSet = workoutVm::deleteSet,
+                                            onToggleRestPause = workoutVm::toggleRestTimerPause,
                                             onAdjustRestTimer = workoutVm::adjustRestTimer,
                                             onStopRestTimer = workoutVm::stopRestTimer,
+                                            onStartRestTimer = workoutVm::startRestTimer,
                                             onSelectMuscleFilter = workoutVm::selectMuscleFilter,
                                             onSelectHeadFilter = workoutVm::selectHeadFilter,
                                             onPickerQueryChange = workoutVm::updatePickerQuery,
@@ -353,8 +355,9 @@ private fun KinetixRoot() {
                                             onConfirmMakePermanent = workoutVm::confirmMakePermanent,
                                             onDismissMakePermanent = workoutVm::dismissMakePermanent,
                                             onAddSplitDay = workoutVm::addSplitDay,
+                                            onAddRestDay = workoutVm::addRestDay,
                                             onUpdateSplitDay = workoutVm::updateSplitDay,
-                                            onMoveSplitExercise = workoutVm::moveSplitExercise,
+                                            onReorderSplitExercises = workoutVm::reorderSplitExercises,
                                             onDeleteSplitDay = workoutVm::deleteSplitDay,
                                             onRemoveSplitExercise = workoutVm::removeExerciseFromSplit,
                                             onAddExerciseToSplitDay = workoutVm::addExerciseToSplitDay,
@@ -413,7 +416,9 @@ private fun KinetixRoot() {
                                             },
                                             onOpenNotificationListenerSettings = {
                                                 context.startActivity(container.mediaControlRepository.buildNotificationListenerSettingsIntent())
-                                            }
+                                            },
+                                            canScheduleExactAlarms = canExactAlarm,
+                                            hasNotificationListener = hasMediaListener
                                         )
                                     }
                                 }
@@ -422,15 +427,14 @@ private fun KinetixRoot() {
                     }
                 }
 
-                // Transparent frosted-glass floating taskbar inspired by iOS / Apple Fitness
                 if (!useRail) {
-                    FloatingGlassTaskbar(
+                    AppleFloatingTabBar(
                         currentRoute = currentRoute,
                         onSelect = navigateTab,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding()
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .padding(horizontal = KinetixTokens.Spacing.NavBarMargin, vertical = 10.dp)
                     )
                 }
             }
@@ -439,48 +443,38 @@ private fun KinetixRoot() {
 }
 
 @Composable
-private fun FloatingGlassTaskbar(
+private fun AppleFloatingTabBar(
     currentRoute: KinetixRoute,
     onSelect: (KinetixRoute) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(28.dp)
-    val rimBrush = remember {
-        Brush.linearGradient(listOf(GlassRimHighlight, GlassRimShadow))
-    }
-    val glassGradient = remember {
-        Brush.verticalGradient(
-            listOf(GlassTopSheen, Color.Transparent)
-        )
-    }
-
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .widthIn(max = 560.dp),
-        shape = shape,
-        color = FloatingDockSurface,
-        border = BorderStroke(1.dp, rimBrush)
+        shape = RoundedCornerShape(28.dp),
+        color = KinetixTokens.Colors.BlurredChrome,
+        border = BorderStroke(0.5.dp, KinetixTokens.Colors.Hairline)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(glassGradient)
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .height(KinetixTokens.Spacing.NavBarHeight)
+                .padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             NAV_ITEMS.forEach { item ->
                 val selected = currentRoute == item.route
                 val interactionSource = remember { MutableInteractionSource() }
+                val tint = if (selected) item.activeAccent else KinetixTokens.Colors.TextSecondary
+
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(54.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(
-                            if (selected) ElectricVolt.copy(alpha = 0.16f) else Color.Transparent
-                        )
+                        .clip(RoundedCornerShape(20.dp))
+                        .applePressScale(interactionSource = interactionSource)
                         .clickable(
                             interactionSource = interactionSource,
                             indication = null,
@@ -496,13 +490,16 @@ private fun FloatingGlassTaskbar(
                         Icon(
                             imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
                             contentDescription = item.label,
-                            tint = if (selected) ElectricVolt else TextSecondary,
-                            modifier = Modifier.size(21.dp)
+                            tint = tint,
+                            modifier = Modifier.size(22.dp)
                         )
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             text = item.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (selected) ElectricVolt else TextSecondary,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                            ),
+                            color = tint,
                             maxLines = 1
                         )
                     }

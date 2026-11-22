@@ -34,6 +34,18 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @Immutable
+data class ExerciseSessionConfig(
+    val targetSets: Int = 3,
+    val repMin: Int = 6,
+    val repMax: Int = 12,
+    val restSeconds: Int = 90,
+    val weightStepKg: Double = 2.5,
+    val autoStartRest: Boolean = true,
+    val isWarmupNext: Boolean = false,
+    val note: String = ""
+)
+
+@Immutable
 data class ActiveExerciseBlock(
     val exerciseId: String,
     val exerciseName: String,
@@ -44,12 +56,14 @@ data class ActiveExerciseBlock(
     val previousSets: List<WorkoutSetEntity>,
     val overloadSuggestion: OverloadSuggestion?,
     val suggestedWeightKg: Double,
-    val suggestedReps: Int
+    val suggestedReps: Int,
+    val config: ExerciseSessionConfig
 )
 
 @Immutable
 data class RestTimerState(
     val isRunning: Boolean = false,
+    val isPaused: Boolean = false,
     val remainingSeconds: Int = 0,
     val totalSeconds: Int = 90
 )
@@ -64,12 +78,14 @@ data class WorkoutUiState(
     val splitExercisesByDay: Map<Long, List<SplitExerciseEntity>> = emptyMap(),
     val activeSession: WorkoutSessionEntity? = null,
     val activeBlocks: List<ActiveExerciseBlock> = emptyList(),
+    val selectedActiveExerciseId: String? = null,
     val completedSessions: List<WorkoutSessionEntity> = emptyList(),
     val historySetsBySession: Map<Long, List<WorkoutSetEntity>> = emptyMap(),
     val weeklyVolume: List<MuscleWeeklyVolume> = emptyList(),
     val restTimer: RestTimerState = RestTimerState(),
     val mediaState: MediaPlaybackUiState = MediaPlaybackUiState(),
     val pendingMakePermanentExercise: ExerciseEntity? = null,
+    val inspectedExercise: ExerciseEntity? = null,
     val muscleGroups: List<String> = emptyList(),
     val muscleHeads: List<String> = emptyList(),
     val selectedMuscle: String = "",
@@ -86,10 +102,14 @@ class WorkoutViewModel(
 ) : ViewModel() {
 
     private val adHocExercisesFlow = MutableStateFlow<List<ExerciseEntity>>(emptyList())
+    private val hiddenExerciseIdsFlow = MutableStateFlow<Set<String>>(emptySet())
+    private val sessionConfigsFlow = MutableStateFlow<Map<String, ExerciseSessionConfig>>(emptyMap())
+    private val selectedActiveExerciseIdFlow = MutableStateFlow<String?>(null)
     private val previousCacheFlow =
         MutableStateFlow<Map<String, Pair<List<WorkoutSetEntity>, OverloadSuggestion?>>>(emptyMap())
     private val restTimerFlow = MutableStateFlow(RestTimerState())
     private val pendingPermanentFlow = MutableStateFlow<ExerciseEntity?>(null)
+    private val inspectedExerciseFlow = MutableStateFlow<ExerciseEntity?>(null)
 
     private val selectedMuscleFlow = MutableStateFlow("")
     private val selectedHeadFlow = MutableStateFlow("")
@@ -113,6 +133,24 @@ class WorkoutViewModel(
         workoutRepository.observeFilteredExercises(m, h, q)
     }
 
+    private val sessionCustomizationFlow = combine(
+        adHocExercisesFlow,
+        hiddenExerciseIdsFlow,
+        sessionConfigsFlow,
+        selectedActiveExerciseIdFlow,
+        inspectedExerciseFlow
+    ) { adHoc, hidden, configs, selId, inspected ->
+        SessionCustomState(adHoc, hidden, configs, selId, inspected)
+    }
+
+    private data class SessionCustomState(
+        val adHoc: List<ExerciseEntity>,
+        val hiddenIds: Set<String>,
+        val configs: Map<String, ExerciseSessionConfig>,
+        val selectedActiveId: String?,
+        val inspectedExercise: ExerciseEntity?
+    )
+
     val uiState: StateFlow<WorkoutUiState> = combine(
         userProfileRepository.observeProfile(),
         workoutRepository.observeSplitDays(),
@@ -122,7 +160,7 @@ class WorkoutViewModel(
         workoutRepository.observeCompletedSessions(),
         workoutRepository.observeRecentHistorySets(),
         workoutRepository.observeWeeklyVolume(),
-        adHocExercisesFlow,
+        sessionCustomizationFlow,
         previousCacheFlow,
         restTimerFlow,
         mediaControlRepository.state,
@@ -149,8 +187,7 @@ class WorkoutViewModel(
         val historySets = arr[6] as List<WorkoutSetEntity>
         @Suppress("UNCHECKED_CAST")
         val weeklyVolume = arr[7] as List<MuscleWeeklyVolume>
-        @Suppress("UNCHECKED_CAST")
-        val adHoc = arr[8] as List<ExerciseEntity>
+        val customState = arr[8] as SessionCustomState
         @Suppress("UNCHECKED_CAST")
         val prevMap = arr[9] as Map<String, Pair<List<WorkoutSetEntity>, OverloadSuggestion?>>
         val restTimer = arr[10] as RestTimerState
@@ -178,9 +215,19 @@ class WorkoutViewModel(
 
         val activeBlocks = if (activeSession != null) {
             val baseItems = byDay[activeSession.splitDayId].orEmpty().map {
-                ActiveStub(it.exerciseId, it.exerciseName, it.muscleGroup, it.muscleHead, false)
+                ActiveStub(
+                    id = it.exerciseId,
+                    name = it.exerciseName,
+                    muscleGroup = it.muscleGroup,
+                    muscleHead = it.muscleHead,
+                    isAdHoc = false,
+                    targetSets = it.targetSets,
+                    repMin = it.repMin,
+                    repMax = it.repMax,
+                    restSeconds = it.restSeconds
+                )
             }
-            val adHocItems = adHoc.map {
+            val adHocItems = customState.adHoc.map {
                 ActiveStub(it.id, it.name, it.muscleGroup, it.muscleHead, true)
             }
             val setExtraItems = activeSets
@@ -190,34 +237,48 @@ class WorkoutViewModel(
                 .distinctBy { it.exerciseId }
                 .map { ActiveStub(it.exerciseId, it.exerciseName, it.muscleGroup, it.muscleHead, it.isAdHoc) }
 
-            (baseItems + adHocItems + setExtraItems).distinctBy { it.id }.map { stub ->
-                val sets = activeSets.filter { it.exerciseId == stub.id }
-                val prevData = prevMap[stub.id]
-                val prevSets = prevData?.first.orEmpty()
-                val overload = prevData?.second
-                val nextIndex = sets.size
-                val matchingPrev = prevSets.getOrNull(nextIndex) ?: prevSets.lastOrNull()
-                val defaultWeight = overload?.takeIf { it.shouldIncrease }?.suggestedWeightKg
-                    ?: matchingPrev?.weightKg
-                    ?: 20.0
-                val defaultReps = if (overload?.shouldIncrease == true) rx.repMin else (matchingPrev?.reps ?: rx.repMax)
+            (baseItems + adHocItems + setExtraItems)
+                .distinctBy { it.id }
+                .filter { it.id !in customState.hiddenIds }
+                .map { stub ->
+                    val sets = activeSets.filter { it.exerciseId == stub.id }
+                    val prevData = prevMap[stub.id]
+                    val prevSets = prevData?.first.orEmpty()
+                    val overload = prevData?.second
+                    val nextIndex = sets.size
+                    val matchingPrev = prevSets.getOrNull(nextIndex) ?: prevSets.lastOrNull()
+                    val defaultWeight = overload?.takeIf { it.shouldIncrease }?.suggestedWeightKg
+                        ?: matchingPrev?.weightKg
+                        ?: 20.0
+                    val cfg = customState.configs[stub.id] ?: ExerciseSessionConfig(
+                        targetSets = if (stub.targetSets > 0) stub.targetSets else rx.sets,
+                        repMin = if (stub.repMin > 0) stub.repMin else rx.repMin,
+                        repMax = if (stub.repMax > 0) stub.repMax else rx.repMax,
+                        restSeconds = if (stub.restSeconds > 0) stub.restSeconds else rx.restSeconds
+                    )
+                    val defaultReps = if (overload?.shouldIncrease == true) cfg.repMin else (matchingPrev?.reps ?: cfg.repMax)
 
-                ActiveExerciseBlock(
-                    exerciseId = stub.id,
-                    exerciseName = stub.name,
-                    muscleGroup = stub.muscleGroup,
-                    muscleHead = stub.muscleHead,
-                    isAdHoc = stub.isAdHoc,
-                    loggedSets = sets,
-                    previousSets = prevSets,
-                    overloadSuggestion = overload,
-                    suggestedWeightKg = defaultWeight,
-                    suggestedReps = defaultReps
-                )
-            }
+                    ActiveExerciseBlock(
+                        exerciseId = stub.id,
+                        exerciseName = stub.name,
+                        muscleGroup = stub.muscleGroup,
+                        muscleHead = stub.muscleHead,
+                        isAdHoc = stub.isAdHoc,
+                        loggedSets = sets,
+                        previousSets = prevSets,
+                        overloadSuggestion = overload,
+                        suggestedWeightKg = defaultWeight,
+                        suggestedReps = defaultReps,
+                        config = cfg
+                    )
+                }
         } else {
             emptyList()
         }
+
+        val resolvedActiveId = customState.selectedActiveId
+            ?.takeIf { id -> activeBlocks.any { it.exerciseId == id } }
+            ?: activeBlocks.firstOrNull()?.exerciseId
 
         WorkoutUiState(
             trainingGoal = goal,
@@ -228,12 +289,14 @@ class WorkoutViewModel(
             splitExercisesByDay = byDay,
             activeSession = activeSession,
             activeBlocks = activeBlocks,
+            selectedActiveExerciseId = resolvedActiveId,
             completedSessions = completedSessions,
             historySetsBySession = historySets.groupBy { it.sessionId },
             weeklyVolume = weeklyVolume,
             restTimer = restTimer,
             mediaState = mediaState,
             pendingMakePermanentExercise = pendingPermanent,
+            inspectedExercise = customState.inspectedExercise,
             muscleGroups = muscleGroups,
             muscleHeads = muscleHeads,
             selectedMuscle = selMuscle,
@@ -250,6 +313,8 @@ class WorkoutViewModel(
     init {
         viewModelScope.launch {
             workoutRepository.ensureSportExercisesSeeded()
+            workoutRepository.ensureStarterSplitIfEmpty()
+            workoutRepository.repairSplitAndExerciseTags()
         }
     }
 
@@ -258,13 +323,14 @@ class WorkoutViewModel(
         val name: String,
         val muscleGroup: String,
         val muscleHead: String,
-        val isAdHoc: Boolean
+        val isAdHoc: Boolean,
+        val targetSets: Int = 0,
+        val repMin: Int = 0,
+        val repMax: Int = 0,
+        val restSeconds: Int = 0
     )
 
-    fun refreshMediaBinding() {
-        mediaControlRepository.refreshBinding()
-    }
-
+    fun refreshMediaBinding() = mediaControlRepository.refreshBinding()
     fun mediaPlayPause() = mediaControlRepository.playPause()
     fun mediaNext() = mediaControlRepository.skipNext()
     fun mediaPrevious() = mediaControlRepository.skipPrevious()
@@ -275,17 +341,66 @@ class WorkoutViewModel(
             val goal = uiState.value.trainingGoal
             workoutRepository.startSession(day, goal)
             adHocExercisesFlow.value = emptyList()
+            hiddenExerciseIdsFlow.value = emptySet()
+            sessionConfigsFlow.value = emptyMap()
             val exercises = uiState.value.splitExercisesByDay[day.id].orEmpty()
-            preloadPreviousData(exercises.map { it.exerciseId }, goal)
+            selectedActiveExerciseIdFlow.value = exercises.firstOrNull()?.exerciseId
+            preloadPreviousData(exercises, goal)
         }
     }
 
-    private suspend fun preloadPreviousData(exerciseIds: List<String>, goal: TrainingGoal) {
+    private suspend fun preloadPreviousData(exercises: List<SplitExerciseEntity>, goal: TrainingGoal) {
+        val updated = previousCacheFlow.value.toMutableMap()
+        exercises.forEach { ex ->
+            updated[ex.exerciseId] = workoutRepository.getPreviousSessionData(
+                exerciseId = ex.exerciseId,
+                goal = goal,
+                targetSetsOverride = ex.targetSets,
+                repMaxOverride = ex.repMax
+            )
+        }
+        previousCacheFlow.value = updated
+    }
+
+    private suspend fun preloadPreviousDataByIds(exerciseIds: List<String>, goal: TrainingGoal) {
         val updated = previousCacheFlow.value.toMutableMap()
         exerciseIds.forEach { id ->
             updated[id] = workoutRepository.getPreviousSessionData(id, goal)
         }
         previousCacheFlow.value = updated
+    }
+
+    fun selectActiveExercise(exerciseId: String) {
+        selectedActiveExerciseIdFlow.value = exerciseId
+    }
+
+    fun updateExerciseSessionConfig(exerciseId: String, config: ExerciseSessionConfig) {
+        sessionConfigsFlow.value = sessionConfigsFlow.value + (exerciseId to config)
+    }
+
+    fun skipExerciseForToday(exerciseId: String) {
+        hiddenExerciseIdsFlow.value = hiddenExerciseIdsFlow.value + exerciseId
+    }
+
+    fun inspectExerciseById(exerciseId: String, fallbackName: String = "", fallbackMuscle: String = "", fallbackHead: String = "") {
+        viewModelScope.launch {
+            val fromDb = workoutRepository.getExerciseById(exerciseId)
+            inspectedExerciseFlow.value = fromDb ?: ExerciseEntity(
+                id = exerciseId,
+                name = fallbackName,
+                muscleGroup = fallbackMuscle,
+                muscleHead = fallbackHead.ifBlank { fallbackMuscle },
+                secondaryMuscles = "",
+                equipment = "Gym Equipment",
+                level = "Intermediate",
+                mechanic = "Compound",
+                instructions = "Control the eccentric and drive through a full range of motion."
+            )
+        }
+    }
+
+    fun dismissExerciseInspection() {
+        inspectedExerciseFlow.value = null
     }
 
     fun logSet(
@@ -296,9 +411,16 @@ class WorkoutViewModel(
         setNumber: Int,
         weightKg: Double,
         reps: Int,
-        isAdHoc: Boolean
+        isAdHoc: Boolean,
+        isWarmup: Boolean = false
     ) {
         val sessionId = uiState.value.activeSession?.id ?: return
+        val blockConfig = uiState.value.activeBlocks
+            .firstOrNull { it.exerciseId == exerciseId }
+            ?.config
+        val restSecs = blockConfig?.restSeconds ?: uiState.value.prescription.restSeconds
+        val autoRest = blockConfig?.autoStartRest ?: true
+
         viewModelScope.launch {
             workoutRepository.logSet(
                 sessionId = sessionId,
@@ -309,9 +431,15 @@ class WorkoutViewModel(
                 setNumber = setNumber,
                 weightKg = weightKg,
                 reps = reps,
+                isWarmup = isWarmup,
                 isAdHoc = isAdHoc
             )
-            startRestTimer(uiState.value.prescription.restSeconds)
+            if (isWarmup && blockConfig != null) {
+                updateExerciseSessionConfig(exerciseId, blockConfig.copy(isWarmupNext = false))
+            }
+            if (autoRest) {
+                startRestTimer(restSecs)
+            }
         }
     }
 
@@ -324,6 +452,9 @@ class WorkoutViewModel(
         viewModelScope.launch {
             workoutRepository.finishSession(sessionId)
             adHocExercisesFlow.value = emptyList()
+            hiddenExerciseIdsFlow.value = emptySet()
+            sessionConfigsFlow.value = emptyMap()
+            selectedActiveExerciseIdFlow.value = null
             pendingPermanentFlow.value = null
             stopRestTimer()
         }
@@ -334,6 +465,9 @@ class WorkoutViewModel(
         viewModelScope.launch {
             workoutRepository.discardSession(sessionId)
             adHocExercisesFlow.value = emptyList()
+            hiddenExerciseIdsFlow.value = emptySet()
+            sessionConfigsFlow.value = emptyMap()
+            selectedActiveExerciseIdFlow.value = null
             pendingPermanentFlow.value = null
             stopRestTimer()
         }
@@ -341,21 +475,42 @@ class WorkoutViewModel(
 
     fun startRestTimer(seconds: Int) {
         timerJob?.cancel()
+        val safeSeconds = seconds.coerceAtLeast(1)
         restTimerFlow.value = RestTimerState(
             isRunning = true,
-            remainingSeconds = seconds,
-            totalSeconds = seconds
+            isPaused = false,
+            remainingSeconds = safeSeconds,
+            totalSeconds = safeSeconds
         )
+        launchTimerCountdown(safeSeconds, safeSeconds)
+    }
+
+    private fun launchTimerCountdown(startFrom: Int, total: Int) {
+        timerJob?.cancel()
         timerJob = viewModelScope.launch {
-            var remaining = seconds
+            var remaining = startFrom
             while (remaining > 0) {
                 delay(1_000L)
                 remaining--
-                restTimerFlow.value = restTimerFlow.value.copy(
+                restTimerFlow.value = RestTimerState(
                     isRunning = remaining > 0,
-                    remainingSeconds = remaining
+                    isPaused = false,
+                    remainingSeconds = remaining,
+                    totalSeconds = total
                 )
             }
+        }
+    }
+
+    fun toggleRestTimerPause() {
+        val cur = restTimerFlow.value
+        if (cur.remainingSeconds <= 0) return
+        if (cur.isPaused) {
+            restTimerFlow.value = cur.copy(isRunning = true, isPaused = false)
+            launchTimerCountdown(cur.remainingSeconds, cur.totalSeconds)
+        } else {
+            timerJob?.cancel()
+            restTimerFlow.value = cur.copy(isRunning = false, isPaused = true)
         }
     }
 
@@ -365,7 +520,16 @@ class WorkoutViewModel(
         if (next == 0) {
             stopRestTimer()
         } else {
-            startRestTimer(next)
+            val newTotal = maxOf(current.totalSeconds, next)
+            restTimerFlow.value = RestTimerState(
+                isRunning = !current.isPaused,
+                isPaused = current.isPaused,
+                remainingSeconds = next,
+                totalSeconds = newTotal
+            )
+            if (!current.isPaused) {
+                launchTimerCountdown(next, newTotal)
+            }
         }
     }
 
@@ -373,6 +537,7 @@ class WorkoutViewModel(
         timerJob?.cancel()
         restTimerFlow.value = RestTimerState(
             isRunning = false,
+            isPaused = false,
             remainingSeconds = 0,
             totalSeconds = uiState.value.prescription.restSeconds
         )
@@ -391,10 +556,6 @@ class WorkoutViewModel(
         pickerQueryFlow.value = query
     }
 
-    /**
-     * Adds an exercise from the Muscle-Targeted Picker into today's workout ONLY,
-     * leaving the saved split untouched unless the user taps "Make Permanent".
-     */
     fun addAdHocExerciseToToday(exercise: ExerciseEntity) {
         viewModelScope.launch {
             if (uiState.value.activeSession == null) {
@@ -403,10 +564,12 @@ class WorkoutViewModel(
                     workoutRepository.startSession(firstDay, uiState.value.trainingGoal)
                 }
             }
+            hiddenExerciseIdsFlow.value = hiddenExerciseIdsFlow.value - exercise.id
             if (adHocExercisesFlow.value.none { it.id == exercise.id }) {
                 adHocExercisesFlow.value = adHocExercisesFlow.value + exercise
             }
-            preloadPreviousData(listOf(exercise.id), uiState.value.trainingGoal)
+            selectedActiveExerciseIdFlow.value = exercise.id
+            preloadPreviousDataByIds(listOf(exercise.id), uiState.value.trainingGoal)
             pendingPermanentFlow.value = exercise
         }
     }
@@ -437,12 +600,20 @@ class WorkoutViewModel(
         viewModelScope.launch { workoutRepository.addSplitDay(name, muscles) }
     }
 
+    fun addRestDay() {
+        viewModelScope.launch { workoutRepository.addRestDay() }
+    }
+
     fun updateSplitDay(dayId: Long, name: String, muscles: String) {
         viewModelScope.launch { workoutRepository.updateSplitDay(dayId, name, muscles) }
     }
 
     fun moveSplitExercise(splitDayId: Long, splitExerciseId: Long, moveUp: Boolean) {
         viewModelScope.launch { workoutRepository.moveSplitExercise(splitDayId, splitExerciseId, moveUp) }
+    }
+
+    fun reorderSplitExercises(splitDayId: Long, orderedExerciseIds: List<Long>) {
+        viewModelScope.launch { workoutRepository.reorderSplitExercises(splitDayId, orderedExerciseIds) }
     }
 
     fun deleteSplitDay(dayId: Long) {

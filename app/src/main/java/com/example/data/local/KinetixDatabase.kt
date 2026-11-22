@@ -45,7 +45,7 @@ import com.example.data.local.entity.WorkoutSetEntity
         ProgressPhotoEntity::class,
         CycleLogEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class KinetixDatabase : RoomDatabase() {
@@ -87,6 +87,15 @@ abstract class KinetixDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `split_exercises` ADD COLUMN `targetSets` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `split_exercises` ADD COLUMN `repMin` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `split_exercises` ADD COLUMN `repMax` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `split_exercises` ADD COLUMN `restSeconds` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         @Volatile
         private var instance: KinetixDatabase? = null
 
@@ -101,7 +110,7 @@ abstract class KinetixDatabase : RoomDatabase() {
                 appContext,
                 KinetixDatabase::class.java,
                 DB_NAME
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             val hasAsset = runCatching {
                 appContext.assets.open(ASSET_DB_PATH).use { true }
             }.getOrDefault(false)

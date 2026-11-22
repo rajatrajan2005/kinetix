@@ -48,7 +48,11 @@ class ExampleRobolectricTest {
             "test_kinetix_${System.nanoTime()}.db"
         )
             .createFromAsset("databases/kinetix.db")
-            .addMigrations(KinetixDatabase.MIGRATION_1_2, KinetixDatabase.MIGRATION_2_3)
+            .addMigrations(
+                KinetixDatabase.MIGRATION_1_2,
+                KinetixDatabase.MIGRATION_2_3,
+                KinetixDatabase.MIGRATION_3_4
+            )
             .allowMainThreadQueries()
             .build()
     }
@@ -225,18 +229,84 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `double muscle split preset and sport discipline seeding work cleanly`() = runTest {
+    fun `six day double muscle split preset populates exact schedule prescriptions and auto-upgrades untouched splits`() = runTest {
         val repo = WorkoutRepository(
             exerciseDao = db.exerciseDao(),
             splitDao = db.splitDao(),
             workoutDao = db.workoutDao()
         )
-        repo.applySplitPreset(SplitPreset.DOUBLE_MUSCLE)
+        // Simulate untouched legacy 4-day starter split before upgrade
+        repo.importSplitFromText(
+            """
+            Chest + Triceps: Barbell Bench Press
+            Back + Biceps: Pull-Up
+            Legs: Barbell Back Squat
+            Shoulders: Dumbbell Lateral Raise
+            """.trimIndent()
+        )
+        repo.repairSplitAndExerciseTags()
+
         val days = repo.observeSplitDays().first()
-        assertEquals(3, days.size)
-        assertEquals("Day 1 · Back & Biceps", days[0].name)
-        assertEquals("Day 2 · Chest & Triceps", days[1].name)
-        assertEquals("Day 3 · Legs & Shoulders (Repeat)", days[2].name)
+        assertEquals(7, days.size)
+        assertEquals("Monday: Chest + Triceps", days[0].name)
+        assertEquals("Tuesday: Back + Biceps", days[1].name)
+        assertEquals("Wednesday: Shoulders + Abs", days[2].name)
+        assertEquals("Thursday: Chest + Triceps", days[3].name)
+        assertEquals("Friday: Back + Biceps", days[4].name)
+        assertEquals("Saturday: Legs", days[5].name)
+        assertEquals("Sunday: Rest", days[6].name)
+
+        // Mon-Sat each have 5 exact exercises, Sunday Rest has 0 exercises
+        for (i in 0..5) {
+            val exList = db.splitDao().getExercisesForDay(days[i].id)
+            assertEquals("Expected 5 exercises on ${days[i].name}", 5, exList.size)
+            assertTrue(
+                "Zero exercises should fall back to Full Body",
+                exList.none { it.muscleGroup == "Full Body" || it.muscleHead == "General" }
+            )
+        }
+        assertTrue(db.splitDao().getExercisesForDay(days[6].id).isEmpty())
+        assertTrue(days[6].targetMusclesCsv.contains("Light walking"))
+
+        // Verify per-exercise reps & Compound (150s) vs Isolation (75s) rest times
+        val monday = db.splitDao().getExercisesForDay(days[0].id)
+        assertEquals("Flat Bench Press", monday[0].exerciseName)
+        assertEquals(3, monday[0].targetSets)
+        assertEquals(8, monday[0].repMin)
+        assertEquals(10, monday[0].repMax)
+        assertEquals(WorkoutRepository.COMPOUND_REST_SECONDS, monday[0].restSeconds)
+
+        assertEquals("Pec Deck", monday[2].exerciseName)
+        assertEquals(12, monday[2].repMin)
+        assertEquals(15, monday[2].repMax)
+        assertEquals(WorkoutRepository.ISOLATION_REST_SECONDS, monday[2].restSeconds)
+
+        val tuesday = db.splitDao().getExercisesForDay(days[1].id)
+        val row = tuesday.first { it.exerciseName == "Chest-Supported Row" }
+        assertEquals("Back", row.muscleGroup)
+        assertEquals("Mid-back", row.muscleHead)
+        assertEquals(10, row.repMin)
+        assertEquals(10, row.repMax)
+        assertEquals(WorkoutRepository.COMPOUND_REST_SECONDS, row.restSeconds)
+
+        val wednesday = db.splitDao().getExercisesForDay(days[2].id)
+        assertEquals("Shoulder Press", wednesday[0].exerciseName)
+        assertEquals(WorkoutRepository.COMPOUND_REST_SECONDS, wednesday[0].restSeconds)
+        assertEquals("Cable Crunches", wednesday[3].exerciseName)
+        assertEquals(15, wednesday[3].repMin)
+        assertEquals(15, wednesday[3].repMax)
+        assertEquals(WorkoutRepository.ISOLATION_REST_SECONDS, wednesday[3].restSeconds)
+
+        val saturday = db.splitDao().getExercisesForDay(days[5].id)
+        assertEquals("Barbell Squats", saturday[0].exerciseName)
+        assertEquals("Standing Calf Raises", saturday[4].exerciseName)
+        assertEquals(15, saturday[4].repMax)
+        assertEquals(WorkoutRepository.ISOLATION_REST_SECONDS, saturday[4].restSeconds)
+
+        repo.addRestDay()
+        val withRest = repo.observeSplitDays().first()
+        assertEquals(8, withRest.size)
+        assertEquals("Rest day", withRest.last().name)
 
         repo.ensureSportExercisesSeeded()
         val allExercises = repo.observeAllExercises().first()

@@ -35,6 +35,7 @@ class KinetixApp : Application(), Configuration.Provider {
             val container = AppContainer.get(this@KinetixApp)
             container.workoutRepository.ensureSportExercisesSeeded()
             container.workoutRepository.ensureStarterSplitIfEmpty()
+            container.workoutRepository.repairSplitAndExerciseTags()
             container.waterRepository.onFirstAppOpenToday()
             enqueueBackgroundWork()
         }

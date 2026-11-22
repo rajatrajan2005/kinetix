@@ -1,15 +1,13 @@
 package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -26,21 +24,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BluetoothAudio
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Speaker
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.rounded.BluetoothAudio
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,15 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -68,217 +55,98 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.media.AudioOutputKind
 import com.example.media.MediaPlaybackUiState
-import com.example.ui.theme.AmoledBlack
-import com.example.ui.theme.CarbonSurface
-import com.example.ui.theme.CyanContainer
-import com.example.ui.theme.ElectricVolt
-import com.example.ui.theme.ElevatedCarbon
-import com.example.ui.theme.GlacialCyan
-import com.example.ui.theme.GlassBottomTint
-import com.example.ui.theme.GlassRimHighlight
-import com.example.ui.theme.GlassRimShadow
-import com.example.ui.theme.GlassTopSheen
-import com.example.ui.theme.ObsidianSurface
-import com.example.ui.theme.StandRingCyan
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VoltContainer
-import com.example.ui.theme.WarmAmber
-import kotlin.math.min
+import com.example.ui.theme.KinetixTokens
+import com.example.ui.theme.rememberReduceAnimations
 
 /**
- * Lightweight 120-fps GPU radial ambient glow backdrop over true AMOLED black,
- * giving frosted glass cards genuine depth and color refraction without blur jank.
+ * Pure true-black (#000000) OLED canvas container — zero ambient blobs or blur jank.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun KinetixAmbientBackdrop(
-    primaryOrb: Color = ElectricVolt,
-    secondaryOrb: Color = GlacialCyan,
-    tertiaryOrb: Color = WarmAmber,
+    primaryOrb: Color = KinetixTokens.Colors.Workout,
+    secondaryOrb: Color = KinetixTokens.Colors.Hydration,
+    tertiaryOrb: Color = KinetixTokens.Colors.Calories,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AmoledBlack)
-    ) {
-        Spacer(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { }
-                .drawWithCache {
-                    val w = size.width.coerceAtLeast(1f)
-                    val h = size.height.coerceAtLeast(1f)
-                    val c1 = Offset(w * 0.88f, h * 0.08f)
-                    val r1 = w * 0.72f
-                    val b1 = Brush.radialGradient(
-                        colors = listOf(primaryOrb.copy(alpha = 0.14f), Color.Transparent),
-                        center = c1,
-                        radius = r1
-                    )
-                    val c2 = Offset(w * 0.10f, h * 0.42f)
-                    val r2 = w * 0.65f
-                    val b2 = Brush.radialGradient(
-                        colors = listOf(secondaryOrb.copy(alpha = 0.12f), Color.Transparent),
-                        center = c2,
-                        radius = r2
-                    )
-                    val c3 = Offset(w * 0.82f, h * 0.82f)
-                    val r3 = w * 0.60f
-                    val b3 = Brush.radialGradient(
-                        colors = listOf(tertiaryOrb.copy(alpha = 0.10f), Color.Transparent),
-                        center = c3,
-                        radius = r3
-                    )
-                    onDrawBehind {
-                        drawCircle(brush = b1, radius = r1, center = c1)
-                        drawCircle(brush = b2, radius = r2, center = c2)
-                        drawCircle(brush = b3, radius = r3, center = c3)
-                    }
-                }
-        )
-        content()
-    }
+            .background(KinetixTokens.Colors.Background),
+        content = content
+    )
 }
 
-private val KinetixCardShape = RoundedCornerShape(22.dp)
-
 /**
- * Translucent glassmorphic card with specular top-left rim light and subtle inner frosted gradient.
+ * Clean elevated Apple Fitness surface wrapper delegating to Card.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun KinetixCard(
     modifier: Modifier = Modifier,
-    containerColor: Color = ObsidianSurface,
+    containerColor: Color = KinetixTokens.Colors.CardSurface,
     borderColor: Color? = null,
     accentGlow: Color? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val rimBrush = remember(borderColor, accentGlow) {
-        if (borderColor != null) {
-            Brush.linearGradient(listOf(borderColor, borderColor.copy(alpha = 0.35f)))
-        } else {
-            val endTint = accentGlow?.copy(alpha = 0.32f) ?: GlassRimShadow
-            Brush.linearGradient(
-                colors = listOf(GlassRimHighlight, endTint, GlassRimShadow)
-            )
-        }
-    }
-    val glassFillBrush = remember(containerColor, accentGlow) {
-        Brush.verticalGradient(
-            colors = listOf(
-                (accentGlow ?: Color.White).copy(alpha = 0.09f),
-                GlassTopSheen,
-                GlassBottomTint
-            )
-        )
-    }
-
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = KinetixCardShape,
-        color = containerColor,
-        border = BorderStroke(1.dp, rimBrush)
-    ) {
-        Column(
-            modifier = Modifier
-                .background(glassFillBrush)
-                .padding(16.dp),
-            content = content
-        )
-    }
+    Card(
+        modifier = modifier,
+        containerColor = containerColor,
+        borderColor = borderColor ?: KinetixTokens.Colors.Hairline,
+        onClick = onClick,
+        content = content
+    )
 }
 
+/**
+ * Apple Fitness-inspired Nutrition Ring displaying kcal remaining in large type inside the ring.
+ */
 @Composable
 fun CalorieRingGauge(
     consumedKcal: Int,
     targetKcal: Int,
     modifier: Modifier = Modifier,
-    size: Dp = 132.dp,
-    accentColor: Color = WarmAmber
+    size: Dp = 128.dp,
+    accentColor: Color = KinetixTokens.Colors.Calories
 ) {
+    val reduceMotion = rememberReduceAnimations()
     val rawProgress = if (targetKcal > 0) consumedKcal.toFloat() / targetKcal.toFloat() else 0f
-    val animatedSweep by animateFloatAsState(
-        targetValue = (rawProgress.coerceIn(0f, 1.15f) * 270f),
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "calorieSweep"
-    )
-    val animatedKcal by animateIntAsState(
-        targetValue = consumedKcal,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "kcalValue"
-    )
     val remaining = (targetKcal - consumedKcal).coerceAtLeast(0)
-    val arcColor = if (consumedKcal > targetKcal) Color(0xFFF87171) else accentColor
+    val over = (consumedKcal - targetKcal).coerceAtLeast(0)
+    val animatedDisplay by animateIntAsState(
+        targetValue = if (over > 0) over else remaining,
+        animationSpec = KinetixTokens.Motion.standardSpring(reduceMotion),
+        label = "kcalRemaining"
+    )
+    val ringColor = if (over > 0) KinetixTokens.Colors.StatusLowFg else accentColor
 
-    Box(
-        modifier = modifier.size(size),
-        contentAlignment = Alignment.Center
+    RingProgress(
+        progress = rawProgress,
+        color = ringColor,
+        modifier = modifier,
+        size = size,
+        strokeWidth = 11.dp
     ) {
-        Canvas(modifier = Modifier.size(size)) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(arcColor.copy(alpha = 0.16f), Color.Transparent)
-                ),
-                radius = this.size.minDimension * 0.52f
-            )
-            val strokePx = 11.dp.toPx()
-            val inset = strokePx / 2f
-            val arcSize = Size(this.size.width - strokePx, this.size.height - strokePx)
-            drawArc(
-                color = ElevatedCarbon.copy(alpha = 0.75f),
-                startAngle = 135f,
-                sweepAngle = 270f,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(width = strokePx, cap = StrokeCap.Round)
-            )
-            drawArc(
-                color = arcColor.copy(alpha = 0.25f),
-                startAngle = 135f,
-                sweepAngle = min(270f, animatedSweep),
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(width = strokePx + 6.dp.toPx(), cap = StrokeCap.Round)
-            )
-            drawArc(
-                color = arcColor,
-                startAngle = 135f,
-                sweepAngle = min(270f, animatedSweep),
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(width = strokePx, cap = StrokeCap.Round)
-            )
-        }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "$animatedKcal",
+                text = "$animatedDisplay",
                 style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary
+                color = KinetixTokens.Colors.TextPrimary
             )
             Text(
-                text = "/ $targetKcal kcal",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "$remaining left",
-                style = MaterialTheme.typography.labelSmall,
-                color = arcColor
+                text = if (over > 0) "kcal over" else "kcal left",
+                style = MaterialTheme.typography.labelMedium,
+                color = ringColor
             )
         }
     }
 }
 
+/**
+ * Slim Apple-style horizontal macro bar with "x / y g" readout and spring animation.
+ */
 @Composable
 fun MacroProgressRow(
     label: String,
@@ -287,71 +155,93 @@ fun MacroProgressRow(
     color: Color,
     modifier: Modifier = Modifier
 ) {
+    val reduceMotion = rememberReduceAnimations()
     val progress = if (targetG > 0) (consumedG / targetG.toDouble()).toFloat().coerceIn(0f, 1f) else 0f
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = KinetixTokens.Motion.ringSpring(reduceMotion),
         label = "macro_$label"
     )
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = KinetixTokens.Colors.TextSecondary
+                )
+            }
             Text(
-                text = "${consumedG.toInt()} / ${targetG}g",
-                style = MaterialTheme.typography.labelMedium,
-                color = TextPrimary
+                text = "${consumedG.toInt()} / ${targetG} g",
+                style = MaterialTheme.typography.labelLarge,
+                color = KinetixTokens.Colors.TextPrimary
             )
         }
-        Spacer(Modifier.height(4.dp))
-        LinearProgressIndicator(
-            progress = { animatedProgress },
+        Spacer(Modifier.height(5.dp))
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(7.dp)
-                .clip(CircleShape),
-            color = color,
-            trackColor = ElevatedCarbon.copy(alpha = 0.7f)
-        )
+                .height(6.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.18f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(animatedProgress.coerceAtLeast(if (consumedG > 0) 0.03f else 0f))
+                    .height(6.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
     }
 }
 
 @Composable
-private fun AudioDevicePill(mediaState: MediaPlaybackUiState) {
+private fun CompactAudioBadge(mediaState: MediaPlaybackUiState) {
     val icon = when (mediaState.audioOutputKind) {
-        AudioOutputKind.BLUETOOTH -> Icons.Default.BluetoothAudio
-        AudioOutputKind.WIRED -> Icons.Default.Headphones
-        AudioOutputKind.SPEAKER -> Icons.Default.Speaker
+        AudioOutputKind.BLUETOOTH -> Icons.Rounded.BluetoothAudio
+        AudioOutputKind.WIRED -> Icons.Rounded.Headphones
+        AudioOutputKind.SPEAKER -> Icons.Rounded.Speaker
     }
-    val pillBg = if (mediaState.isHeadsetConnected) CyanContainer else ElevatedCarbon.copy(alpha = 0.8f)
-    val pillTint = if (mediaState.isHeadsetConnected) StandRingCyan else TextSecondary
+    val tint = if (mediaState.isHeadsetConnected) KinetixTokens.Colors.Hydration else KinetixTokens.Colors.TextSecondary
 
     Row(
-        modifier = Modifier
-            .testTag("audio_output_badge")
-            .background(pillBg, CircleShape)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+        modifier = Modifier.testTag("audio_output_badge"),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = "Audio output: ${mediaState.audioOutputLabel}",
-            tint = pillTint,
-            modifier = Modifier.size(13.dp)
+            tint = tint,
+            modifier = Modifier.size(14.dp)
         )
         Spacer(Modifier.width(4.dp))
         Text(
             text = mediaState.audioOutputLabel,
-            style = MaterialTheme.typography.labelSmall,
-            color = pillTint,
+            style = MaterialTheme.typography.labelMedium,
+            color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
 }
 
+/**
+ * Slim Apple-style Mini-Player strip (artwork, title, play/pause + next),
+ * collapsing to a compact "Connect music" row when Notification Listener isn't granted.
+ */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun MiniMediaPlayerBar(
     mediaState: MediaPlaybackUiState,
@@ -362,195 +252,159 @@ fun MiniMediaPlayerBar(
     onOpenListenerSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(20.dp)
-    val rimBrush = remember(mediaState.isPlaying, mediaState.isHeadsetConnected) {
-        Brush.linearGradient(
-            listOf(
-                GlassRimHighlight,
-                when {
-                    mediaState.isPlaying -> ElectricVolt.copy(alpha = 0.45f)
-                    mediaState.isHeadsetConnected -> StandRingCyan.copy(alpha = 0.40f)
-                    else -> GlassRimShadow
-                }
-            )
-        )
-    }
+    val interactionSource = remember { MutableInteractionSource() }
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag("workout_mini_player"),
-        shape = shape,
-        color = CarbonSurface,
-        border = BorderStroke(1.dp, rimBrush)
+        shape = RoundedCornerShape(16.dp),
+        color = KinetixTokens.Colors.CardSurface,
+        border = BorderStroke(0.5.dp, KinetixTokens.Colors.Hairline)
     ) {
-        val innerGlass = remember(mediaState.isPlaying) {
-            Brush.verticalGradient(
-                listOf(
-                    if (mediaState.isPlaying) ElectricVolt.copy(alpha = 0.08f) else GlassTopSheen,
-                    GlassBottomTint
-                )
-            )
-        }
         if (!mediaState.hasListenerAccess) {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(innerGlass)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .applePressScale(interactionSource = interactionSource)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onOpenListenerSettings
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .testTag("enable_media_listener_button"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(KinetixTokens.Colors.NestedSurface),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MusicNote,
+                            imageVector = Icons.Rounded.MusicNote,
                             contentDescription = null,
-                            tint = ElectricVolt,
-                            modifier = Modifier.size(20.dp)
+                            tint = KinetixTokens.Colors.TextPrimary,
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Universal Music Control",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "Control Poweramp, Echo & any player",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
-                            )
-                        }
                     }
-                    FilledTonalButton(
-                        onClick = onOpenListenerSettings,
-                        modifier = Modifier.testTag("enable_media_listener_button")
-                    ) {
-                        Text("Connect")
-                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "Connect music",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = KinetixTokens.Colors.TextPrimary
+                    )
                 }
-                AudioDevicePill(mediaState)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CompactAudioBadge(mediaState)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Rounded.ChevronRight,
+                        contentDescription = "Connect music player",
+                        tint = KinetixTokens.Colors.TextTertiary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         } else {
-            Column(
+            Row(
                 modifier = Modifier
-                    .background(innerGlass)
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val artBitmap = remember(mediaState.albumArt) {
-                        mediaState.albumArt?.asImageBitmap()
-                    }
-                    if (artBitmap != null) {
-                        Image(
-                            bitmap = artBitmap,
-                            contentDescription = "Album art",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(ElevatedCarbon),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MusicNote,
-                                contentDescription = "No album art",
-                                tint = ElectricVolt
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = mediaState.title,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = mediaState.artist,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        AudioDevicePill(mediaState)
-                    }
-
-                    IconButton(
-                        onClick = onPrevious,
-                        enabled = mediaState.hasActiveSession,
-                        modifier = Modifier.semantics { contentDescription = "Previous track" }
-                    ) {
-                        Icon(Icons.Default.SkipPrevious, contentDescription = null, tint = TextPrimary)
-                    }
-                    val playTint by animateColorAsState(
-                        targetValue = if (mediaState.isPlaying) ElectricVolt else TextPrimary,
-                        label = "playTint"
-                    )
-                    IconButton(
-                        onClick = onPlayPause,
-                        enabled = mediaState.hasActiveSession,
+                val artBitmap = remember(mediaState.albumArt) {
+                    mediaState.albumArt?.asImageBitmap()
+                }
+                if (artBitmap != null) {
+                    Image(
+                        bitmap = artBitmap,
+                        contentDescription = "Album art",
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .testTag("media_play_pause_button")
-                            .semantics { contentDescription = if (mediaState.isPlaying) "Pause" else "Play" }
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(KinetixTokens.Colors.NestedSurface),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (mediaState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = playTint
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = "No album art",
+                            tint = KinetixTokens.Colors.TextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
-                    }
-                    IconButton(
-                        onClick = onNext,
-                        enabled = mediaState.hasActiveSession,
-                        modifier = Modifier.semantics { contentDescription = "Next track" }
-                    ) {
-                        Icon(Icons.Default.SkipNext, contentDescription = null, tint = TextPrimary)
                     }
                 }
 
-                if (mediaState.hasActiveSession && mediaState.durationMs > 0L) {
-                    val progress = (mediaState.positionMs.toFloat() / mediaState.durationMs.toFloat())
-                        .coerceIn(0f, 1f)
-                    Slider(
-                        value = progress,
-                        onValueChange = { fraction ->
-                            onSeekTo((fraction * mediaState.durationMs).toLong())
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = ElectricVolt,
-                            activeTrackColor = ElectricVolt,
-                            inactiveTrackColor = ElevatedCarbon
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(22.dp)
-                    )
-                } else if (!mediaState.hasActiveSession) {
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Start playback in your music app to control it here",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted,
-                        modifier = Modifier.padding(top = 6.dp)
+                        text = if (mediaState.hasActiveSession) mediaState.title else "No active track",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = KinetixTokens.Colors.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val subtitle = if (mediaState.hasActiveSession) {
+                        "${mediaState.artist} · ${mediaState.audioOutputLabel}"
+                    } else {
+                        mediaState.audioOutputLabel
+                    }
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (mediaState.isHeadsetConnected) {
+                            KinetixTokens.Colors.Hydration
+                        } else {
+                            KinetixTokens.Colors.TextSecondary
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("audio_output_badge")
+                    )
+                }
+
+                val playTint by animateColorAsState(
+                    targetValue = if (mediaState.isPlaying) KinetixTokens.Colors.Workout else KinetixTokens.Colors.TextPrimary,
+                    label = "playTint"
+                )
+                IconButton(
+                    onClick = onPlayPause,
+                    enabled = mediaState.hasActiveSession,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .testTag("media_play_pause_button")
+                        .semantics { contentDescription = if (mediaState.isPlaying) "Pause" else "Play" }
+                ) {
+                    Icon(
+                        imageVector = if (mediaState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = playTint
+                    )
+                }
+                IconButton(
+                    onClick = onNext,
+                    enabled = mediaState.hasActiveSession,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .semantics { contentDescription = "Next track" }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.SkipNext,
+                        contentDescription = null,
+                        tint = KinetixTokens.Colors.TextPrimary
                     )
                 }
             }
