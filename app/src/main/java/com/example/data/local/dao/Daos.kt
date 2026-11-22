@@ -6,9 +6,11 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.example.data.local.entity.CycleLogEntity
 import com.example.data.local.entity.ExerciseEntity
 import com.example.data.local.entity.FoodItemCacheEntity
 import com.example.data.local.entity.FoodLogEntity
+import com.example.data.local.entity.ProgressPhotoEntity
 import com.example.data.local.entity.SplitDayEntity
 import com.example.data.local.entity.SplitExerciseEntity
 import com.example.data.local.entity.StepRecordEntity
@@ -86,6 +88,9 @@ interface SplitDao {
 
     @Update
     suspend fun updateDay(day: SplitDayEntity)
+
+    @Update
+    suspend fun updateSplitExercises(exercises: List<SplitExerciseEntity>)
 
     @Query("DELETE FROM split_days WHERE id = :dayId")
     suspend fun deleteDay(dayId: Long)
@@ -192,6 +197,9 @@ interface NutritionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFoodLog(log: FoodLogEntity): Long
 
+    @Update
+    suspend fun updateFoodLog(log: FoodLogEntity)
+
     @Query("DELETE FROM food_logs WHERE id = :id")
     suspend fun deleteFoodLog(id: Long)
 
@@ -208,11 +216,17 @@ interface NutritionDao {
     @Query("SELECT * FROM food_item_cache WHERE lastUsedAtEpochMs > 0 OR isCustom = 1 ORDER BY lastUsedAtEpochMs DESC, cachedAtEpochMs DESC LIMIT 15")
     fun observeRecentFoods(): Flow<List<FoodItemCacheEntity>>
 
+    @Query("SELECT * FROM food_item_cache WHERE isCustom = 1 ORDER BY lastUsedAtEpochMs DESC, cachedAtEpochMs DESC")
+    fun observeCustomFoods(): Flow<List<FoodItemCacheEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertFoodCache(items: List<FoodItemCacheEntity>)
 
     @Query("UPDATE food_item_cache SET lastUsedAtEpochMs = :usedAtEpochMs WHERE barcodeOrKey = :key")
     suspend fun markFoodUsed(key: String, usedAtEpochMs: Long)
+
+    @Query("DELETE FROM food_item_cache WHERE barcodeOrKey = :key")
+    suspend fun deleteCachedFood(key: String)
 }
 
 @Dao
@@ -255,4 +269,28 @@ interface StepDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertStepRecord(record: StepRecordEntity)
+}
+
+@Dao
+interface ProgressPhotoDao {
+    @Query("SELECT * FROM progress_photos ORDER BY dateEpochDay DESC, createdAtEpochMs DESC")
+    fun observeAllPhotos(): Flow<List<ProgressPhotoEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPhoto(photo: ProgressPhotoEntity): Long
+
+    @Query("DELETE FROM progress_photos WHERE id = :id")
+    suspend fun deletePhoto(id: Long)
+}
+
+@Dao
+interface CycleDao {
+    @Query("SELECT * FROM cycle_logs ORDER BY startDateEpochDay DESC LIMIT 24")
+    fun observeCycleLogs(): Flow<List<CycleLogEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCycleLog(log: CycleLogEntity): Long
+
+    @Query("DELETE FROM cycle_logs WHERE id = :id")
+    suspend fun deleteCycleLog(id: Long)
 }

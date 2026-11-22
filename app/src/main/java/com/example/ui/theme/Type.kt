@@ -8,11 +8,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
-val SpaceGroteskFamily = FontFamily(
-    Font(R.font.space_grotesk, FontWeight.Normal),
-    Font(R.font.space_grotesk, FontWeight.Medium),
-    Font(R.font.space_grotesk, FontWeight.SemiBold),
-    Font(R.font.space_grotesk, FontWeight.Bold)
+val PlusJakartaSansFamily = FontFamily(
+    Font(R.font.plus_jakarta_sans, FontWeight.Normal),
+    Font(R.font.plus_jakarta_sans, FontWeight.Medium),
+    Font(R.font.plus_jakarta_sans, FontWeight.SemiBold),
+    Font(R.font.plus_jakarta_sans, FontWeight.Bold)
 )
 
 val InterFamily = FontFamily(
@@ -22,75 +22,80 @@ val InterFamily = FontFamily(
     Font(R.font.inter, FontWeight.Bold)
 )
 
-val JetBrainsMonoFamily = FontFamily(
-    Font(R.font.jetbrains_mono, FontWeight.Normal),
-    Font(R.font.jetbrains_mono, FontWeight.Medium),
-    Font(R.font.jetbrains_mono, FontWeight.Bold)
-)
-
 val KinetixTypography = Typography(
     displaySmall = TextStyle(
-        fontFamily = SpaceGroteskFamily,
+        fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 38.sp,
-        letterSpacing = (-0.5).sp
+        fontSize = 33.sp,
+        lineHeight = 39.sp,
+        letterSpacing = (-0.6).sp,
+        fontFeatureSettings = "tnum"
     ),
     headlineMedium = TextStyle(
-        fontFamily = SpaceGroteskFamily,
+        fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = (-0.3).sp
+        fontSize = 25.sp,
+        lineHeight = 31.sp,
+        letterSpacing = (-0.4).sp,
+        fontFeatureSettings = "tnum"
     ),
     headlineSmall = TextStyle(
-        fontFamily = SpaceGroteskFamily,
+        fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
-        lineHeight = 26.sp
+        lineHeight = 26.sp,
+        letterSpacing = (-0.2).sp
     ),
     titleLarge = TextStyle(
-        fontFamily = SpaceGroteskFamily,
+        fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 18.sp,
-        lineHeight = 24.sp
+        lineHeight = 24.sp,
+        letterSpacing = (-0.15).sp
     ),
     titleMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
-        lineHeight = 20.sp
+        lineHeight = 20.sp,
+        letterSpacing = (-0.1).sp,
+        fontFeatureSettings = "tnum"
     ),
     bodyLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
-        lineHeight = 22.sp
+        lineHeight = 22.sp,
+        fontFeatureSettings = "tnum"
     ),
     bodyMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 13.sp,
-        lineHeight = 18.sp
+        lineHeight = 18.sp,
+        fontFeatureSettings = "tnum"
     ),
     labelLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 13.sp,
-        lineHeight = 16.sp
+        lineHeight = 16.sp,
+        fontFeatureSettings = "tnum"
     ),
     labelMedium = TextStyle(
-        fontFamily = JetBrainsMonoFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 0.4.sp
+        fontFamily = InterFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.5.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.2.sp,
+        fontFeatureSettings = "tnum"
     ),
     labelSmall = TextStyle(
-        fontFamily = JetBrainsMonoFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 10.sp,
-        lineHeight = 12.sp,
-        letterSpacing = 0.5.sp
+        fontFamily = InterFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 10.5.sp,
+        lineHeight = 13.sp,
+        letterSpacing = 0.25.sp,
+        fontFeatureSettings = "tnum"
     )
 )

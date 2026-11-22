@@ -31,6 +31,7 @@ data class NutritionUiState(
     ),
     val todayLogs: List<FoodLogEntity> = emptyList(),
     val recentFoods: List<FoodItemCacheEntity> = emptyList(),
+    val customFoods: List<FoodItemCacheEntity> = emptyList(),
     val searchResults: List<FoodItemCacheEntity> = emptyList(),
     val query: String = "",
     val isRefreshingRemote: Boolean = false,
@@ -60,6 +61,7 @@ class NutritionViewModel(
         nutritionRepository.observeMacroTargets(),
         nutritionRepository.observeTodayLogs(),
         nutritionRepository.observeRecentFoods(),
+        nutritionRepository.observeCustomFoods(),
         cachedSearchFlow,
         queryFlow,
         refreshingFlow,
@@ -71,15 +73,18 @@ class NutritionViewModel(
         @Suppress("UNCHECKED_CAST")
         val recents = arr[2] as List<FoodItemCacheEntity>
         @Suppress("UNCHECKED_CAST")
-        val cached = arr[3] as List<FoodItemCacheEntity>
-        val q = arr[4] as String
-        val refreshing = arr[5] as Boolean
-        val error = arr[6] as String?
+        val customs = arr[3] as List<FoodItemCacheEntity>
+        @Suppress("UNCHECKED_CAST")
+        val cached = arr[4] as List<FoodItemCacheEntity>
+        val q = arr[5] as String
+        val refreshing = arr[6] as Boolean
+        val error = arr[7] as String?
 
         NutritionUiState(
             targets = targets,
             todayLogs = logs,
             recentFoods = recents,
+            customFoods = customs,
             searchResults = cached,
             query = q,
             isRefreshingRemote = refreshing,
@@ -138,17 +143,19 @@ class NutritionViewModel(
         carbsPer100g: Double,
         fatPer100g: Double,
         gramsToLog: Double,
-        mealSlot: MealSlot
+        mealSlot: MealSlot,
+        alsoLog: Boolean = true
     ) {
         viewModelScope.launch {
-            nutritionRepository.addCustomFoodAndLog(
-                name,
-                kcalPer100g,
-                proteinPer100g,
-                carbsPer100g,
-                fatPer100g,
-                gramsToLog,
-                mealSlot
+            nutritionRepository.saveCustomFood(
+                name = name,
+                kcalPer100g = kcalPer100g,
+                proteinPer100g = proteinPer100g,
+                carbsPer100g = carbsPer100g,
+                fatPer100g = fatPer100g,
+                gramsToLog = gramsToLog,
+                mealSlot = mealSlot,
+                alsoLog = alsoLog
             )
         }
     }
@@ -159,17 +166,31 @@ class NutritionViewModel(
         totalProteinG: Double,
         totalCarbsG: Double,
         totalFatG: Double,
-        mealSlot: MealSlot
+        mealSlot: MealSlot,
+        alsoLog: Boolean = true
     ) {
         viewModelScope.launch {
-            nutritionRepository.addCustomMealTotalAndLog(
+            nutritionRepository.saveCustomMealTotal(
                 name = name,
                 totalKcal = totalKcal,
                 totalProteinG = totalProteinG,
                 totalCarbsG = totalCarbsG,
                 totalFatG = totalFatG,
-                mealSlot = mealSlot
+                mealSlot = mealSlot,
+                alsoLog = alsoLog
             )
+        }
+    }
+
+    fun deleteCustomFood(barcodeOrKey: String) {
+        viewModelScope.launch {
+            nutritionRepository.deleteCustomFood(barcodeOrKey)
+        }
+    }
+
+    fun updateFoodLog(log: FoodLogEntity) {
+        viewModelScope.launch {
+            nutritionRepository.updateFoodLog(log)
         }
     }
 

@@ -16,6 +16,8 @@ import com.example.domain.calculator.TrainingTuningCalculator
 import com.example.domain.model.MuscleWeeklyVolume
 import com.example.domain.model.OverloadSuggestion
 import com.example.domain.model.SetRepPrescription
+import com.example.domain.model.SplitPreset
+import com.example.domain.model.SportDiscipline
 import com.example.domain.model.TrainingGoal
 import com.example.media.MediaControlRepository
 import com.example.media.MediaPlaybackUiState
@@ -56,6 +58,8 @@ data class RestTimerState(
 data class WorkoutUiState(
     val trainingGoal: TrainingGoal = TrainingGoal.HYPERTROPHY,
     val prescription: SetRepPrescription = TrainingTuningCalculator.prescriptionFor(TrainingGoal.HYPERTROPHY),
+    val sportDiscipline: SportDiscipline = SportDiscipline.NONE,
+    val sportRecommendedExercises: List<ExerciseEntity> = emptyList(),
     val splitDays: List<SplitDayEntity> = emptyList(),
     val splitExercisesByDay: Map<Long, List<SplitExerciseEntity>> = emptyMap(),
     val activeSession: WorkoutSessionEntity? = null,
@@ -128,7 +132,8 @@ class WorkoutViewModel(
         filteredExercisesFlow,
         selectedMuscleFlow,
         selectedHeadFlow,
-        pickerQueryFlow
+        pickerQueryFlow,
+        workoutRepository.observeAllExercises()
     ) { arr ->
         val profile = arr[0] as UserProfileEntity
         @Suppress("UNCHECKED_CAST")
@@ -160,9 +165,14 @@ class WorkoutViewModel(
         val selMuscle = arr[16] as String
         val selHead = arr[17] as String
         val query = arr[18] as String
+        @Suppress("UNCHECKED_CAST")
+        val allExercises = arr[19] as List<ExerciseEntity>
 
         val goal = runCatching { TrainingGoal.valueOf(profile.trainingGoal) }
             .getOrDefault(TrainingGoal.HYPERTROPHY)
+        val sport = runCatching { SportDiscipline.valueOf(profile.sportType) }
+            .getOrDefault(SportDiscipline.NONE)
+        val sportExercises = workoutRepository.recommendedForSport(sport, allExercises)
         val rx = TrainingTuningCalculator.prescriptionFor(goal)
         val byDay = splitExercises.groupBy { it.splitDayId }
 
@@ -212,6 +222,8 @@ class WorkoutViewModel(
         WorkoutUiState(
             trainingGoal = goal,
             prescription = rx,
+            sportDiscipline = sport,
+            sportRecommendedExercises = sportExercises,
             splitDays = splitDays,
             splitExercisesByDay = byDay,
             activeSession = activeSession,
@@ -234,6 +246,12 @@ class WorkoutViewModel(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = WorkoutUiState()
     )
+
+    init {
+        viewModelScope.launch {
+            workoutRepository.ensureSportExercisesSeeded()
+        }
+    }
 
     private data class ActiveStub(
         val id: String,
@@ -419,12 +437,32 @@ class WorkoutViewModel(
         viewModelScope.launch { workoutRepository.addSplitDay(name, muscles) }
     }
 
+    fun updateSplitDay(dayId: Long, name: String, muscles: String) {
+        viewModelScope.launch { workoutRepository.updateSplitDay(dayId, name, muscles) }
+    }
+
+    fun moveSplitExercise(splitDayId: Long, splitExerciseId: Long, moveUp: Boolean) {
+        viewModelScope.launch { workoutRepository.moveSplitExercise(splitDayId, splitExerciseId, moveUp) }
+    }
+
     fun deleteSplitDay(dayId: Long) {
         viewModelScope.launch { workoutRepository.deleteSplitDay(dayId) }
     }
 
     fun importSplitText(rawText: String) {
         viewModelScope.launch { workoutRepository.importSplitFromText(rawText) }
+    }
+
+    fun applySplitPreset(preset: SplitPreset) {
+        viewModelScope.launch { workoutRepository.applySplitPreset(preset) }
+    }
+
+    fun selectSport(sport: SportDiscipline) {
+        viewModelScope.launch {
+            workoutRepository.ensureSportExercisesSeeded()
+            val cur = userProfileRepository.getProfileOnce()
+            userProfileRepository.saveProfile(cur.copy(sportType = sport.name))
+        }
     }
 
     class Factory(

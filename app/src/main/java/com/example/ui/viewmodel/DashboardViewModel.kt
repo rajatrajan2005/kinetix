@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.entity.CycleLogEntity
 import com.example.data.local.entity.FoodLogEntity
 import com.example.data.local.entity.SplitDayEntity
 import com.example.data.local.entity.StepRecordEntity
@@ -11,10 +12,13 @@ import com.example.data.local.entity.UserProfileEntity
 import com.example.data.local.entity.WaterLogEntity
 import com.example.data.local.entity.WaterScheduleStateEntity
 import com.example.data.repository.NutritionRepository
+import com.example.data.repository.ProgressAndCycleRepository
 import com.example.data.repository.StepRepository
 import com.example.data.repository.UserProfileRepository
 import com.example.data.repository.WaterRepository
 import com.example.data.repository.WorkoutRepository
+import com.example.domain.calculator.CycleCalculator
+import com.example.domain.calculator.CycleSummary
 import com.example.domain.calculator.MacroCalculator
 import com.example.domain.calculator.TrainingTuningCalculator
 import com.example.domain.calculator.WaterScheduleCalculator
@@ -24,6 +28,7 @@ import com.example.domain.model.MuscleWeeklyVolume
 import com.example.domain.model.NutritionGoal
 import com.example.domain.model.SetRepPrescription
 import com.example.domain.model.Sex
+import com.example.domain.model.SportDiscipline
 import com.example.domain.model.TrainingGoal
 import com.example.domain.model.WaterDoseSlot
 import com.example.steps.StepSensorManager
@@ -59,7 +64,8 @@ data class TodayUiState(
     val hasActiveWorkout: Boolean = false,
     val prescription: SetRepPrescription = TrainingTuningCalculator.prescriptionFor(TrainingGoal.HYPERTROPHY),
     val weeklyVolume: List<MuscleWeeklyVolume> = emptyList(),
-    val recentSteps: List<StepRecordEntity> = emptyList()
+    val recentSteps: List<StepRecordEntity> = emptyList(),
+    val cycleSummary: CycleSummary? = null
 )
 
 class DashboardViewModel(
@@ -68,6 +74,7 @@ class DashboardViewModel(
     private val waterRepository: WaterRepository,
     private val stepRepository: StepRepository,
     private val workoutRepository: WorkoutRepository,
+    private val progressAndCycleRepository: ProgressAndCycleRepository,
     private val stepSensorManager: StepSensorManager,
     private val waterAlarmScheduler: WaterAlarmScheduler
 ) : ViewModel() {
@@ -86,6 +93,7 @@ class DashboardViewModel(
         workoutRepository.observeActiveSession(),
         workoutRepository.observeWeeklyVolume(),
         stepRepository.observeRecentSteps(),
+        progressAndCycleRepository.observeCycleLogs(),
         upcomingSlotsFlow,
         exactAlarmGrantedFlow
     ) { values ->
@@ -105,8 +113,10 @@ class DashboardViewModel(
         @Suppress("UNCHECKED_CAST")
         val recentSteps = values[9] as List<StepRecordEntity>
         @Suppress("UNCHECKED_CAST")
-        val slots = values[10] as List<WaterDoseSlot>
-        val canExact = values[11] as Boolean
+        val cycleLogs = values[10] as List<CycleLogEntity>
+        @Suppress("UNCHECKED_CAST")
+        val slots = values[11] as List<WaterDoseSlot>
+        val canExact = values[12] as Boolean
 
         val sex = runCatching { Sex.valueOf(profile.sex) }.getOrDefault(Sex.MALE)
         val activity = runCatching { ActivityLevel.valueOf(profile.activityLevel) }
@@ -130,6 +140,15 @@ class DashboardViewModel(
             profile.weightKg,
             profile.waterMlPerKg
         )
+        val cycleSummary = if (sex == Sex.FEMALE && profile.trackCycle == 1) {
+            CycleCalculator.summarize(
+                logs = cycleLogs,
+                cycleLengthDays = profile.cycleLengthDays,
+                periodLengthDays = profile.periodLengthDays
+            )
+        } else {
+            null
+        }
 
         TodayUiState(
             profile = profile,
@@ -151,7 +170,8 @@ class DashboardViewModel(
             hasActiveWorkout = activeSession != null,
             prescription = TrainingTuningCalculator.prescriptionFor(tGoal),
             weeklyVolume = weeklyVolume,
-            recentSteps = recentSteps
+            recentSteps = recentSteps,
+            cycleSummary = cycleSummary
         )
     }.stateIn(
         scope = viewModelScope,
@@ -210,6 +230,7 @@ class DashboardViewModel(
     }
 
     fun completeOnboarding(
+        displayName: String,
         age: Int,
         sex: Sex,
         heightCm: Double,
@@ -217,13 +238,18 @@ class DashboardViewModel(
         activityLevel: ActivityLevel,
         nutritionGoal: NutritionGoal,
         trainingGoal: TrainingGoal,
+        sportDiscipline: SportDiscipline,
         wakeTime: LocalTime,
-        bedTime: LocalTime
+        bedTime: LocalTime,
+        trackCycle: Boolean
     ) {
         viewModelScope.launch {
             val current = userProfileRepository.getProfileOnce()
+            val cleanName = displayName.trim().ifBlank { "Athlete" }
+            val goalTargets = TrainingTuningCalculator.recommendedTargetsFor(trainingGoal)
             userProfileRepository.saveProfile(
                 current.copy(
+                    displayName = cleanName,
                     age = age,
                     sex = sex.name,
                     heightCm = heightCm,
@@ -231,8 +257,13 @@ class DashboardViewModel(
                     activityLevel = activityLevel.name,
                     nutritionGoal = nutritionGoal.name,
                     trainingGoal = trainingGoal.name,
+                    proteinPerKg = goalTargets.proteinPerKg,
+                    waterMlPerKg = goalTargets.waterMlPerKg,
+                    stepGoal = goalTargets.stepGoal,
+                    sportType = sportDiscipline.name,
                     wakeTimeMinutes = wakeTime.hour * 60 + wakeTime.minute,
                     bedTimeMinutes = bedTime.hour * 60 + bedTime.minute,
+                    trackCycle = if (sex == Sex.FEMALE && trackCycle) 1 else 0,
                     hasCompletedOnboarding = 1
                 )
             )
@@ -247,6 +278,7 @@ class DashboardViewModel(
         private val waterRepository: WaterRepository,
         private val stepRepository: StepRepository,
         private val workoutRepository: WorkoutRepository,
+        private val progressAndCycleRepository: ProgressAndCycleRepository,
         private val stepSensorManager: StepSensorManager,
         private val waterAlarmScheduler: WaterAlarmScheduler
     ) : ViewModelProvider.Factory {
@@ -258,6 +290,7 @@ class DashboardViewModel(
                 waterRepository,
                 stepRepository,
                 workoutRepository,
+                progressAndCycleRepository,
                 stepSensorManager,
                 waterAlarmScheduler
             ) as T

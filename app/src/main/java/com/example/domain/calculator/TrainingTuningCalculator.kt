@@ -8,13 +8,62 @@ import com.example.domain.model.TrainingGoal
 import com.example.domain.model.VolumeStatus
 import kotlin.math.round
 
+import com.example.domain.model.NutritionGoal
+
+@androidx.compose.runtime.Immutable
+data class GoalBiometricTargets(
+    val nutritionGoal: NutritionGoal,
+    val proteinPerKg: Double,
+    val waterMlPerKg: Double,
+    val stepGoal: Int,
+    val summaryNote: String
+)
+
 /**
- * Computes goal-based set/rep prescriptions, double-progression overload suggestions,
- * and weekly hard-set muscle volume classifications without mutating the user's split.
+ * Computes goal-based set/rep prescriptions, goal-aligned protein/water/step targets,
+ * double-progression overload suggestions, and weekly hard-set muscle volume classifications.
  */
 object TrainingTuningCalculator {
 
     private const val PROGRESSION_STEP_KG = 2.5
+
+    fun recommendedTargetsFor(goal: TrainingGoal): GoalBiometricTargets = when (goal) {
+        TrainingGoal.STRENGTH -> GoalBiometricTargets(
+            nutritionGoal = NutritionGoal.BULK,
+            proteinPerKg = 1.9,
+            waterMlPerKg = 32.0,
+            stepGoal = 7500,
+            summaryNote = "Surplus +10% · 1.9 g/kg protein · 32 ml/kg water · 7.5k steps"
+        )
+        TrainingGoal.HYPERTROPHY -> GoalBiometricTargets(
+            nutritionGoal = NutritionGoal.BULK,
+            proteinPerKg = 2.0,
+            waterMlPerKg = 33.0,
+            stepGoal = 8500,
+            summaryNote = "Lean gain +10% · 2.0 g/kg protein · 33 ml/kg water · 8.5k steps"
+        )
+        TrainingGoal.BODY_RECOMP -> GoalBiometricTargets(
+            nutritionGoal = NutritionGoal.RECOMP,
+            proteinPerKg = 2.1,
+            waterMlPerKg = 35.0,
+            stepGoal = 9500,
+            summaryNote = "Recomp (~97% TDEE) · 2.1 g/kg protein · 35 ml/kg water · 9.5k steps"
+        )
+        TrainingGoal.FAT_LOSS -> GoalBiometricTargets(
+            nutritionGoal = NutritionGoal.CUT,
+            proteinPerKg = 2.2,
+            waterMlPerKg = 35.0,
+            stepGoal = 11000,
+            summaryNote = "Cut (-17.5% TDEE) · 2.2 g/kg protein · 35 ml/kg water · 11k steps"
+        )
+        TrainingGoal.ENDURANCE -> GoalBiometricTargets(
+            nutritionGoal = NutritionGoal.MAINTAIN,
+            proteinPerKg = 1.7,
+            waterMlPerKg = 35.0,
+            stepGoal = 12000,
+            summaryNote = "High-carb maintenance · 1.7 g/kg protein · 35 ml/kg water · 12k steps"
+        )
+    }
 
     fun prescriptionFor(goal: TrainingGoal): SetRepPrescription = when (goal) {
         TrainingGoal.STRENGTH -> SetRepPrescription(
@@ -30,6 +79,13 @@ object TrainingTuningCalculator {
             repMax = 12,
             restSeconds = 90,
             note = "Mechanical tension · controlled eccentric"
+        )
+        TrainingGoal.BODY_RECOMP -> SetRepPrescription(
+            sets = 3,
+            repMin = 8,
+            repMax = 12,
+            restSeconds = 90,
+            note = "Build lean mass & drop fat · tight progressive overload"
         )
         TrainingGoal.FAT_LOSS -> SetRepPrescription(
             sets = 3,

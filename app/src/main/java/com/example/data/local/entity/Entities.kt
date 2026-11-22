@@ -31,6 +31,8 @@ data class ExerciseEntity(
 @Entity(tableName = "user_profile")
 data class UserProfileEntity(
     @PrimaryKey val id: Int = 1,
+    val displayName: String = "Athlete",
+    val profilePhotoPath: String = "",
     val age: Int = 27,
     val sex: String = "MALE",
     val heightCm: Double = 178.0,
@@ -45,6 +47,10 @@ data class UserProfileEntity(
     val manualWakeOverride: Int = 0,
     val waterMlPerKg: Double = 33.0,
     val stepGoal: Int = 9000,
+    val trackCycle: Int = 0,
+    val cycleLengthDays: Int = 28,
+    val periodLengthDays: Int = 5,
+    val sportType: String = "NONE",
     val hasCompletedOnboarding: Int = 0
 )
 
@@ -200,4 +206,33 @@ data class StepRecordEntity(
     val lastHardwareCounter: Long,
     val hardwareOffset: Long,
     val updatedAtEpochMs: Long
+)
+
+@Immutable
+@Entity(
+    tableName = "progress_photos",
+    indices = [Index(value = ["dateEpochDay"])]
+)
+data class ProgressPhotoEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val weekLabel: String,
+    val dateEpochDay: Long,
+    val filePath: String,
+    val weightKgSnapshot: Double,
+    val notes: String,
+    val createdAtEpochMs: Long
+)
+
+@Immutable
+@Entity(
+    tableName = "cycle_logs",
+    indices = [Index(value = ["startDateEpochDay"])]
+)
+data class CycleLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val startDateEpochDay: Long,
+    val endDateEpochDay: Long? = null,
+    val flowIntensity: String,
+    val symptomsCsv: String,
+    val notes: String
 )

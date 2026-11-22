@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.data.local.KinetixDatabase
 import com.example.data.remote.OpenFoodFactsClient
 import com.example.data.repository.NutritionRepository
+import com.example.data.repository.ProgressAndCycleRepository
 import com.example.data.repository.StepRepository
 import com.example.data.repository.UserProfileRepository
 import com.example.data.repository.WaterRepository
@@ -64,6 +65,15 @@ class AppContainer private constructor(appContext: Context) {
 
     val stepRepository: StepRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         StepRepository(database.stepDao())
+    }
+
+    val progressAndCycleRepository: ProgressAndCycleRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        ProgressAndCycleRepository(
+            appContext = appContext,
+            userProfileDao = database.userProfileDao(),
+            progressPhotoDao = database.progressPhotoDao(),
+            cycleDao = database.cycleDao()
+        )
     }
 
     val mediaControlRepository: MediaControlRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {

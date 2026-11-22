@@ -26,11 +26,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BluetoothAudio
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -53,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -61,9 +66,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.media.AudioOutputKind
 import com.example.media.MediaPlaybackUiState
 import com.example.ui.theme.AmoledBlack
 import com.example.ui.theme.CarbonSurface
+import com.example.ui.theme.CyanContainer
 import com.example.ui.theme.ElectricVolt
 import com.example.ui.theme.ElevatedCarbon
 import com.example.ui.theme.GlacialCyan
@@ -72,9 +79,11 @@ import com.example.ui.theme.GlassRimHighlight
 import com.example.ui.theme.GlassRimShadow
 import com.example.ui.theme.GlassTopSheen
 import com.example.ui.theme.ObsidianSurface
+import com.example.ui.theme.StandRingCyan
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.VoltContainer
 import com.example.ui.theme.WarmAmber
 import kotlin.math.min
 
@@ -95,40 +104,46 @@ fun KinetixAmbientBackdrop(
             .fillMaxSize()
             .background(AmoledBlack)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(primaryOrb.copy(alpha = 0.14f), Color.Transparent),
-                    center = Offset(w * 0.88f, h * 0.08f),
-                    radius = w * 0.72f
-                ),
-                radius = w * 0.72f,
-                center = Offset(w * 0.88f, h * 0.08f)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(secondaryOrb.copy(alpha = 0.12f), Color.Transparent),
-                    center = Offset(w * 0.10f, h * 0.42f),
-                    radius = w * 0.65f
-                ),
-                radius = w * 0.65f,
-                center = Offset(w * 0.10f, h * 0.42f)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(tertiaryOrb.copy(alpha = 0.10f), Color.Transparent),
-                    center = Offset(w * 0.82f, h * 0.82f),
-                    radius = w * 0.60f
-                ),
-                radius = w * 0.60f,
-                center = Offset(w * 0.82f, h * 0.82f)
-            )
-        }
+        Spacer(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { }
+                .drawWithCache {
+                    val w = size.width.coerceAtLeast(1f)
+                    val h = size.height.coerceAtLeast(1f)
+                    val c1 = Offset(w * 0.88f, h * 0.08f)
+                    val r1 = w * 0.72f
+                    val b1 = Brush.radialGradient(
+                        colors = listOf(primaryOrb.copy(alpha = 0.14f), Color.Transparent),
+                        center = c1,
+                        radius = r1
+                    )
+                    val c2 = Offset(w * 0.10f, h * 0.42f)
+                    val r2 = w * 0.65f
+                    val b2 = Brush.radialGradient(
+                        colors = listOf(secondaryOrb.copy(alpha = 0.12f), Color.Transparent),
+                        center = c2,
+                        radius = r2
+                    )
+                    val c3 = Offset(w * 0.82f, h * 0.82f)
+                    val r3 = w * 0.60f
+                    val b3 = Brush.radialGradient(
+                        colors = listOf(tertiaryOrb.copy(alpha = 0.10f), Color.Transparent),
+                        center = c3,
+                        radius = r3
+                    )
+                    onDrawBehind {
+                        drawCircle(brush = b1, radius = r1, center = c1)
+                        drawCircle(brush = b2, radius = r2, center = c2)
+                        drawCircle(brush = b3, radius = r3, center = c3)
+                    }
+                }
+        )
         content()
     }
 }
+
+private val KinetixCardShape = RoundedCornerShape(22.dp)
 
 /**
  * Translucent glassmorphic card with specular top-left rim light and subtle inner frosted gradient.
@@ -142,7 +157,6 @@ fun KinetixCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(22.dp)
     val rimBrush = remember(borderColor, accentGlow) {
         if (borderColor != null) {
             Brush.linearGradient(listOf(borderColor, borderColor.copy(alpha = 0.35f)))
@@ -166,9 +180,8 @@ fun KinetixCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = shape,
+        shape = KinetixCardShape,
         color = containerColor,
         border = BorderStroke(1.dp, rimBrush)
     ) {
@@ -306,6 +319,40 @@ fun MacroProgressRow(
 }
 
 @Composable
+private fun AudioDevicePill(mediaState: MediaPlaybackUiState) {
+    val icon = when (mediaState.audioOutputKind) {
+        AudioOutputKind.BLUETOOTH -> Icons.Default.BluetoothAudio
+        AudioOutputKind.WIRED -> Icons.Default.Headphones
+        AudioOutputKind.SPEAKER -> Icons.Default.Speaker
+    }
+    val pillBg = if (mediaState.isHeadsetConnected) CyanContainer else ElevatedCarbon.copy(alpha = 0.8f)
+    val pillTint = if (mediaState.isHeadsetConnected) StandRingCyan else TextSecondary
+
+    Row(
+        modifier = Modifier
+            .testTag("audio_output_badge")
+            .background(pillBg, CircleShape)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = "Audio output: ${mediaState.audioOutputLabel}",
+            tint = pillTint,
+            modifier = Modifier.size(13.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = mediaState.audioOutputLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = pillTint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 fun MiniMediaPlayerBar(
     mediaState: MediaPlaybackUiState,
     onPlayPause: () -> Unit,
@@ -316,11 +363,15 @@ fun MiniMediaPlayerBar(
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(20.dp)
-    val rimBrush = remember(mediaState.isPlaying) {
+    val rimBrush = remember(mediaState.isPlaying, mediaState.isHeadsetConnected) {
         Brush.linearGradient(
             listOf(
                 GlassRimHighlight,
-                if (mediaState.isPlaying) ElectricVolt.copy(alpha = 0.45f) else GlassRimShadow
+                when {
+                    mediaState.isPlaying -> ElectricVolt.copy(alpha = 0.45f)
+                    mediaState.isHeadsetConnected -> StandRingCyan.copy(alpha = 0.40f)
+                    else -> GlassRimShadow
+                }
             )
         )
     }
@@ -332,51 +383,59 @@ fun MiniMediaPlayerBar(
         color = CarbonSurface,
         border = BorderStroke(1.dp, rimBrush)
     ) {
-        val innerGlass = Brush.verticalGradient(
-            listOf(
-                if (mediaState.isPlaying) ElectricVolt.copy(alpha = 0.08f) else GlassTopSheen,
-                GlassBottomTint
+        val innerGlass = remember(mediaState.isPlaying) {
+            Brush.verticalGradient(
+                listOf(
+                    if (mediaState.isPlaying) ElectricVolt.copy(alpha = 0.08f) else GlassTopSheen,
+                    GlassBottomTint
+                )
             )
-        )
+        }
         if (!mediaState.hasListenerAccess) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(innerGlass)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = ElectricVolt,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Universal Music Control",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = ElectricVolt,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Text(
-                            text = "Control Poweramp, Echo & any player",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Universal Music Control",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Control Poweramp, Echo & any player",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                    FilledTonalButton(
+                        onClick = onOpenListenerSettings,
+                        modifier = Modifier.testTag("enable_media_listener_button")
+                    ) {
+                        Text("Connect")
                     }
                 }
-                FilledTonalButton(
-                    onClick = onOpenListenerSettings,
-                    modifier = Modifier.testTag("enable_media_listener_button")
-                ) {
-                    Text("Connect")
-                }
+                AudioDevicePill(mediaState)
             }
         } else {
             Column(
@@ -397,13 +456,13 @@ fun MiniMediaPlayerBar(
                             contentDescription = "Album art",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(44.dp)
                                 .clip(RoundedCornerShape(10.dp))
                         )
                     } else {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(44.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(ElevatedCarbon),
                             contentAlignment = Alignment.Center
@@ -432,6 +491,8 @@ fun MiniMediaPlayerBar(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        Spacer(Modifier.height(4.dp))
+                        AudioDevicePill(mediaState)
                     }
 
                     IconButton(
@@ -489,7 +550,7 @@ fun MiniMediaPlayerBar(
                         text = "Start playback in your music app to control it here",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 6.dp)
                     )
                 }
             }

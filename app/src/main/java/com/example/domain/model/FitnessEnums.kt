@@ -25,6 +25,7 @@ enum class NutritionGoal(
 ) {
     CUT("Cut (Fat Loss)", "TDEE minus 15–20% deficit"),
     MAINTAIN("Maintain", "Bodyweight & performance steady"),
+    RECOMP("Body Recomp", "TDEE maintenance · lean muscle + fat loss"),
     BULK("Bulk (Lean Gain)", "TDEE plus 10% surplus")
 }
 
@@ -52,9 +53,17 @@ enum class TrainingGoal(
         repMax = 12,
         restSeconds = 90
     ),
+    BODY_RECOMP(
+        label = "Body Recomp",
+        subtitle = "3–4 sets × 8–12 reps · 90s rest · high protein",
+        defaultSets = 3,
+        repMin = 8,
+        repMax = 12,
+        restSeconds = 90
+    ),
     FAT_LOSS(
         label = "Fat Loss",
-        subtitle = "Hypertrophy volume & intensity (deficit via diet)",
+        subtitle = "Hypertrophy stimulus · high protein & steps",
         defaultSets = 3,
         repMin = 6,
         repMax = 12,
@@ -68,6 +77,28 @@ enum class TrainingGoal(
         repMax = 20,
         restSeconds = 60
     )
+}
+
+enum class SportDiscipline(
+    val label: String,
+    val subtitle: String
+) {
+    NONE("Gym Only", "Pure strength, hypertrophy & physique focus"),
+    FOOTBALL("Football / Soccer", "Sprint power, hamstring/groin durability & agility"),
+    BASKETBALL("Basketball", "Vertical jump, deceleration & lateral reactivity"),
+    RUNNING("Running / Track", "Single-leg drive, calf elasticity & hip stability"),
+    CRICKET("Cricket / Racquet", "Rotational power, cuff health & lateral speed"),
+    COMBAT("Combat / MMA", "Explosive hips, rotational core & grip endurance"),
+    SWIMMING("Swimming", "Lat endurance, scapular control & streamline core"),
+    CYCLING("Cycling", "Quad stamina, glute-ham balance & lumbar endurance")
+}
+
+enum class SplitPreset(
+    val label: String,
+    val subtitle: String
+) {
+    PPL("Push · Pull · Legs", "Default 3-day repeating push, pull & legs rotation"),
+    DOUBLE_MUSCLE("Double Muscle", "Back+Bi · Chest+Tri · Legs+Shoulders · Repeat")
 }
 
 enum class MealSlot(val label: String) {

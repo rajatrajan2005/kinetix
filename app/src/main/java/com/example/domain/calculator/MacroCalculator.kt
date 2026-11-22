@@ -42,6 +42,7 @@ object MacroCalculator {
         val adjustedKcal = when (nutritionGoal) {
             NutritionGoal.CUT -> tdee * (1.0 - safeCutDeficit)
             NutritionGoal.MAINTAIN -> tdee
+            NutritionGoal.RECOMP -> tdee * 0.97
             NutritionGoal.BULK -> tdee * 1.10
         }
 
